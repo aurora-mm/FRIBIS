@@ -1,5 +1,5 @@
 ---
-title: "FRIBIS!"
+title: "FRIBIS"
 output: 
   flexdashboard::flex_dashboard:
     orientation: columns
@@ -13,11 +13,13 @@ library(readxl)
 library(plotly)
 library(feather)
 
+# Set to 1 if data from the Excel file needs to be imported.
 init <- 0
 
 discography_path <- "discography.feather"
 projects_path <- "projects.feather"
 
+# Import Excel file
 if(init == 1) {
   discography <- read_excel("data.xlsx", sheet = "Discography")
   projects <- read_excel("data.xlsx", sheet = "Projects")
@@ -25,42 +27,54 @@ if(init == 1) {
   write_feather(projects, projects_path)
 }
 
+# Read Feather files
 discography <- read_feather(discography_path)
 projects <- read_feather(projects_path)
 
+# Pick only data starting from 2019 and wrangle
 discography <- discography %>%
   select(artist, album, year, month, genre, mastering, own, collab, compilation, IA) %>%
   filter(year != "TBA") %>% na.omit() %>%
-  filter(!row_number() %in% c(1:5))
+  filter(!row_number() %in% c(1:30))
 
+# Calculate totals
 total_productions <- nrow(discography) %>% as.numeric()
-
 total_mastering <- discography %>% filter(mastering == 1) %>% nrow() %>% as.numeric()
 
-total_own <- discography %>% filter(own == 1) %>% nrow() %>% as.numeric()
+# total_own <- discography %>% filter(own == 1) %>% nrow() %>% as.numeric()
+# total_collab <- discography %>% filter(collab == 1) %>% nrow() %>% as.numeric()
 
-total_collab <- discography %>% filter(collab == 1) %>% nrow() %>% as.numeric()
+# compilations <- discography %>% filter(compilation != 0) %>% 
+#   group_by(compilation) %>% summarize(total = n(), .groups = "drop") %>%
+#   mutate(compilation = c("INTENT", "Other", "PARADIGM"))
 
-compilations <- discography %>% filter(compilation != 0) %>% 
-  group_by(compilation) %>% summarize(total = n(), .groups = "drop") %>%
-  mutate(compilation = c("INTENT", "Other", "PARADIGM"))
-
-genres <- discography %>% group_by(genre) %>% 
+# Genre distribution for production total
+genres_productions <- discography %>% group_by(genre) %>% 
   summarize(total = n(), .groups = "drop")
 
-genres_aggr <- rbind(
-  genres %>% filter(total > 10),
-  genres %>% filter(total < 10) %>% 
+genres_productions_aggr <- rbind(
+  genres_productions %>% filter(total > 10),
+  genres_productions %>% filter(total < 10) %>% 
     mutate(genre = "Other", total = sum(across(total))) %>% distinct()
 )
+remove(genres_productions)
 
+# Genre distribution for mastering total
+genres_mastering <- discography %>% filter(mastering == 1) %>% 
+  group_by(genre) %>% summarize(total = n(), .groups = "drop")
+
+genres_mastering_aggr <- rbind(
+  genres_mastering %>% filter(total > 10),
+  genres_mastering %>% filter(total < 10) %>% 
+    mutate(genre = "Other", total = sum(across(total))) %>% distinct()
+)
+remove(genres_mastering)
 
 # To Do:
 #
 # 1. Listen to the whole "Reclaiming the Truth", for the sake of checking correct pronunciation
 # 2. Timeline plot for creative stuff. Start and end of projects.
-# 3. Need a PDF for Tuatha (discography, can be attached to CE and DWG) and NBE 
-#.   (can be attached to literally anything).
+
 
 ```
 
@@ -74,30 +88,38 @@ Column {data-width=650}
 
 ```
 
-Column {data-width=350}
+Column {data-width=320}
 -----------------------------------------------------------------------
 
 ### Chart B
 
 ```{r}
-genres_aggr %>% 
+genres_productions_aggr %>%
   plot_ly(labels = ~genre,
           values = ~total,
+          textinfo = "none",
           sort = FALSE) %>% 
-  add_pie(hole = 0.7) %>%
+  add_pie(hole = 0.8) %>%
   layout(xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE)) 
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         annotations = list(text = paste0("<span style='font-size: 14px; color=#555; font-family:Helvetica'>Productions</span><br />", total_productions), "showarrow" = FALSE, 
+                            font = list(size = 40, color = "black")))
+
 ```
 
 ### Chart C
 
 ```{r}
-compilations %>% 
-  plot_ly(labels = ~compilation,
+genres_mastering_aggr %>%
+  plot_ly(labels = ~genre,
           values = ~total,
+          textinfo = "none",
           sort = FALSE) %>% 
-  add_pie(hole = 0.7) %>%
+  add_pie(hole = 0.8) %>%
   layout(xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
-         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE)) 
-```
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         annotations = list(text = paste0("<span style='font-size: 14px; color=#555; font-family:Helvetica'>Mastering</span><br />", total_mastering), "showarrow" = FALSE, 
+                            font = list(size = 40, color = "black")))
 
+
+```
