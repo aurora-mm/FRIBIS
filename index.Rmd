@@ -2,7 +2,7 @@
 title: "FRIBIS"
 output: 
   flexdashboard::flex_dashboard:
-    orientation: columns
+    orientation: rows
     vertical_layout: fill
 ---
 
@@ -40,13 +40,9 @@ discography <- discography %>%
 # Calculate totals
 total_productions <- nrow(discography) %>% as.numeric()
 total_mastering <- discography %>% filter(mastering == 1) %>% nrow() %>% as.numeric()
-
-# total_own <- discography %>% filter(own == 1) %>% nrow() %>% as.numeric()
-# total_collab <- discography %>% filter(collab == 1) %>% nrow() %>% as.numeric()
-
-# compilations <- discography %>% filter(compilation != 0) %>% 
-#   group_by(compilation) %>% summarize(total = n(), .groups = "drop") %>%
-#   mutate(compilation = c("INTENT", "Other", "PARADIGM"))
+total_own <- discography %>% filter(own == 1) %>% nrow() %>% as.numeric()
+total_collab <- discography %>% filter(collab == 1) %>% nrow() %>% as.numeric()
+total_compilation <- discography %>% filter(compilation != 0) %>% nrow() %>% as.numeric()
 
 # Genre distribution for production total
 genres_productions <- discography %>% group_by(genre) %>% 
@@ -74,24 +70,49 @@ remove(genres_mastering)
 #
 # 1. Listen to the whole "Reclaiming the Truth", for the sake of checking correct pronunciation
 # 2. Timeline plot for creative stuff. Start and end of projects.
+# 3. Bar chart. Own music, collabs, compilations (intent/paradigm/others)
 
 
 ```
 
-Column {data-width=650}
+Row {data-height=15}
 -----------------------------------------------------------------------
 
-### Chart A
+### Own Music
+
+```{r v1}
+valueBox(total_own, caption = "Own Music", icon="fa-user")
+
+```
+
+### Collaborations
+
+```{r v2}
+valueBox(total_collab, caption = "Collaborations", icon="fa-users")
+
+```
+
+### Compilations
+
+```{r v3}
+valueBox(total_compilation, caption = "Compilations", icon="fa-spinner")
+
+```
+
+Row {data-height=250}
+-----------------------------------------------------------------------
+
+### Timeline
 
 ```{r}
 
 
 ```
 
-Column {data-width=320}
+Row {data-height=250}
 -----------------------------------------------------------------------
 
-### Chart B
+###
 
 ```{r}
 genres_productions_aggr %>%
@@ -107,7 +128,7 @@ genres_productions_aggr %>%
 
 ```
 
-### Chart C
+### 
 
 ```{r}
 genres_mastering_aggr %>%
@@ -123,3 +144,7 @@ genres_mastering_aggr %>%
 
 
 ```
+
+
+
+
