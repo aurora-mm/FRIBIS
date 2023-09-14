@@ -1,0 +1,103 @@
+---
+title: "FRIBIS"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(dplyr)
+library(readxl)
+library(plotly)
+library(feather)
+
+init <- 0
+
+discography_path <- "discography.feather"
+projects_path <- "projects.feather"
+
+if(init == 1) {
+  discography <- read_excel("data.xlsx", sheet = "Discography")
+  projects <- read_excel("data.xlsx", sheet = "Projects")
+  write_feather(discography, discography_path)
+  write_feather(projects, projects_path)
+}
+
+discography <- read_feather(discography_path)
+projects <- read_feather(projects_path)
+
+discography <- discography %>%
+  select(artist, album, year, month, genre, mastering, own, collab, compilation, IA) %>%
+  filter(year != "TBA") %>% na.omit() %>%
+  filter(!row_number() %in% c(1:5))
+
+total_productions <- nrow(discography) %>% as.numeric()
+
+total_mastering <- discography %>% filter(mastering == 1) %>% nrow() %>% as.numeric()
+
+total_own <- discography %>% filter(own == 1) %>% nrow() %>% as.numeric()
+
+total_collab <- discography %>% filter(collab == 1) %>% nrow() %>% as.numeric()
+
+compilations <- discography %>% filter(compilation != 0) %>% 
+  group_by(compilation) %>% summarize(total = n(), .groups = "drop") %>%
+  mutate(compilation = c("INTENT", "Other", "PARADIGM"))
+
+genres <- discography %>% group_by(genre) %>% 
+  summarize(total = n(), .groups = "drop")
+
+genres_aggr <- rbind(
+  genres %>% filter(total > 10),
+  genres %>% filter(total < 10) %>% 
+    mutate(genre = "Other", total = sum(across(total))) %>% distinct()
+)
+
+
+# To Do:
+#
+# 1. Listen to the whole "Reclaiming the Truth", for the sake of checking correct pronunciation
+# 2. Timeline plot for creative stuff. Start and end of projects.
+# 3. Need a PDF for Tuatha (discography, can be attached to CE and DWG) and NBE 
+#.   (can be attached to literally anything).
+
+```
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Chart A
+
+```{r}
+
+
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Chart B
+
+```{r}
+genres_aggr %>% 
+  plot_ly(labels = ~genre,
+          values = ~total,
+          sort = FALSE) %>% 
+  add_pie(hole = 0.7) %>%
+  layout(xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE)) 
+```
+
+### Chart C
+
+```{r}
+compilations %>% 
+  plot_ly(labels = ~compilation,
+          values = ~total,
+          sort = FALSE) %>% 
+  add_pie(hole = 0.7) %>%
+  layout(xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE)) 
+```
+
