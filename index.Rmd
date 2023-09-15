@@ -70,46 +70,13 @@ remove(genres_mastering)
 #
 # 1. Listen to the whole "Reclaiming the Truth", for the sake of checking correct pronunciation
 # 2. Timeline plot for creative stuff. Start and end of projects.
-# 3. Bar chart. Own music, collabs, compilations (intent/paradigm/others)
+# 3. Bar chart. Own music, collabs, compilations (intent/paradigm/others). Or the third donut.
+#    But make sure that the categories are mutually exclusive.
 
 
 ```
 
-Row {data-height=15}
------------------------------------------------------------------------
-
-### Own Music
-
-```{r v1}
-valueBox(total_own, caption = "Own Music", icon="fa-user")
-
-```
-
-### Collaborations
-
-```{r v2}
-valueBox(total_collab, caption = "Collaborations", icon="fa-users")
-
-```
-
-### Compilations
-
-```{r v3}
-valueBox(total_compilation, caption = "Compilations", icon="fa-spinner")
-
-```
-
-Row {data-height=250}
------------------------------------------------------------------------
-
-### Timeline
-
-```{r}
-
-
-```
-
-Row {data-height=250}
+Row {data-height=350}
 -----------------------------------------------------------------------
 
 ###
@@ -145,6 +112,27 @@ genres_mastering_aggr %>%
 
 ```
 
+Row {data-height=250}
+-----------------------------------------------------------------------
+
+### Timeline
+
+```{r}
 
 
+```
 
+Row {data-height=60}
+-----------------------------------------------------------------------
+
+###
+
+Own Music Albums: `r total_own`  
+
+###
+
+Collaborations: `r total_collab`
+
+###
+
+Compilations: `r total_compilation`
