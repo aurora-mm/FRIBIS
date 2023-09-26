@@ -7,6 +7,11 @@ output:
     theme: 
       version: 4
       bootswatch: spacelab
+    navbar:
+        - { icon: "fa-facebook", href: "https://www.facebook.com/nierikaproductions", align: right }
+        - { icon: "fa-instagram", href: "https://www.instagram.com/lrf_se", align: right}
+        - { icon: "fa-soundcloud", href: "https://soundcloud.com/lrf_se", align: right}
+        - { icon: "fa-medium", href: "https://medium.com/@lrf_se", align: right}
 ---
 
 ```{r setup, include=FALSE}
@@ -110,10 +115,8 @@ remove(genres_mastering)
 # To Do:
 #
 # 1. Listen to the whole "Reclaiming the Truth", for the sake of checking correct pronunciation
-# 2. Timeline plot for creative stuff. Start and end of projects. Album list + soc.media icons
-#   (FB, instagram, SoundCloud, Medium)
-# 3. The line about data since April 2019. Barplot: mastering bar too.
-# 4. CV generation based on Feather data (separate rmd)
+# 2. Start and end of projects.
+# 3. CV generation based on Feather data (separate rmd)
 
 
 ```
