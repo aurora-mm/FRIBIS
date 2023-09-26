@@ -21,6 +21,7 @@ library(ggplot2)
 library(tidyverse)
 library(knitr)
 library(timevis)
+library(htmlwidgets)
 
 # Set to 1 if data from the Excel file needs to be imported.
 init <- 0
@@ -50,6 +51,9 @@ discography <- discography %>%
 discography$year <- discography$year %>% as.numeric()
 discography$date <- with(discography, ym(
   sprintf("%04d%02d", discography$year, discography$month)))
+discography$m <- format(discography$date, "%b")
+discography$y <- format(discography$date, "%y")
+
 
 # Define album type as a factor
 discography <- discography %>% mutate(type = case_when(own == 1 ~ "Own Music",
@@ -61,16 +65,25 @@ discography$type <- factor(discography$type, levels = type_levels, ordered = TRU
 
 # Define position of timeline milestones on the chart
 discography$direction <- rep_len(c(1, -1), nrow(discography))
-discography$position <- rep_len(c(0.5, -0.5, 1.0, -1.0, 1.25, -1.25, 1.5, -1.5), nrow(discography))
+discography$position <- rep_len(c(0.75, -0.75, 1.0, -1.0, 
+                                  1.25, -1.25, 1.5, -1.5), nrow(discography))
 
-
+# Release column
+discography$release <- paste0(discography$artist, " - ",
+                             discography$album)
 
 # Calculate totals
 total_productions <- nrow(discography) %>% as.numeric()
 total_mastering <- discography %>% dplyr::filter(mastering == 1) %>% nrow() %>% as.numeric()
 total_own <- discography %>% dplyr::filter(own == 1) %>% nrow() %>% as.numeric()
+total_own_mastering <- discography %>% dplyr::filter(mastering == 1) %>% 
+  dplyr::filter(own == 1) %>% nrow() %>% as.numeric()
 total_collab <- discography %>% dplyr::filter(collab == 1) %>% nrow() %>% as.numeric()
+total_collab_mastering <- discography %>% dplyr::filter(mastering == 1) %>%
+  dplyr::filter(collab == 1) %>% nrow() %>% as.numeric()
 total_compilation <- discography %>% dplyr::filter(compilation != 0) %>% nrow() %>% as.numeric()
+total_compilation_mastering <- discography %>% dplyr::filter(mastering == 1) %>%
+  dplyr::filter(compilation != 0) %>% nrow() %>% as.numeric()
 
 # Genre distribution for production total
 genres_productions <- discography %>% group_by(genre) %>% 
@@ -99,7 +112,7 @@ remove(genres_mastering)
 # 1. Listen to the whole "Reclaiming the Truth", for the sake of checking correct pronunciation
 # 2. Timeline plot for creative stuff. Start and end of projects. Album list + soc.media icons
 #   (FB, instagram, SoundCloud, Medium)
-# 3. The line about data since April 2019.
+# 3. The line about data since April 2019. Barplot: mastering bar too.
 # 4. CV generation based on Feather data (separate rmd)
 
 
@@ -150,9 +163,14 @@ genres_mastering_aggr %>%
 
 ```{r}
 # Show the proportions of work done so far
-totals <- data.frame("Total", total_own, total_collab, total_compilation)
-colnames(totals) <- c("Label", "Own", "Collaborations", "Compilations")
-totals %>% plot_ly(x = ~Label, y = ~Own,
+totals <- data.frame(Total = c("Production", "Mastering"),
+                     Own = c(total_own, total_own_mastering),
+                     Collaborations = c(total_collab, total_collab_mastering),
+                     Compilations = c(total_compilation, total_compilation_mastering))
+xform <- list(categoryorder = "array",
+              categoryarray = c("Production", 
+                                "Mastering"))
+totals %>% plot_ly(x = ~Total, y = ~Own,
                        type = "bar", name = "Own Music",
                    marker = list(color = "#e34a33")) %>%
         add_trace(y = ~Collaborations, name = "Collaborations",
@@ -160,7 +178,7 @@ totals %>% plot_ly(x = ~Label, y = ~Own,
         add_trace(y = ~Compilations, name = "Compilations",
                   marker = list(color = "#fee8c8")) %>%
         layout(barmode = "stack", yaxis = list(title = ""),
-              barmode = "stack" , xaxis = list(title = ""),
+              barmode = "stack" , xaxis = xform,
               title = "") %>%
   config(displayModeBar = FALSE)
   
@@ -174,7 +192,9 @@ Row {data-height=300}
 ```{r,fig.width = 40, fig.height = 35}
 # Create and show the timeline plot
 tl_creative <- ggplot(
-  discography, aes(x = date, y = position, col = type, label = album)) 
+  discography, aes(x = date, y = position, col = type, label = release,
+                   customdata = discography$IA)
+  ) 
 
 tl_creative <- tl_creative + labs(col = "") 
 
@@ -188,6 +208,15 @@ tl_creative <- tl_creative + geom_hline(yintercept = 0, color = "#000000", linew
 tl_creative <- tl_creative + geom_segment(
   data = discography, aes(y = position, yend = 0, xend = date), color = "#000000", 
   linewidth = 0.2) 
+
+tl_creative <- tl_creative + geom_text(data = discography,  
+                                       aes(x = date, 
+                                           y = -0.15, label = m),
+                                       size = 3, vjust = 0.5, color = "#CCCCCC", angle = 90) 
+
+tl_creative <- tl_creative + geom_text(data = discography,
+                                       aes(x = date, y = -0.38, label = y,
+                                           fontface = "bold"), size = 3.5, color = "#CCCCCC") 
 
 tl_creative <- tl_creative + geom_point(aes(y = position), size = 3) 
 
@@ -203,8 +232,31 @@ tl_creative <- tl_creative + theme(axis.line.y = element_blank(),
                  legend.position = "right"
                 ) 
 
-ggplotly(tl_creative, tooltip = "album") %>%
-  config(displayModeBar = FALSE)
+p <- ggplotly(tl_creative, tooltip = "release") %>%
+  config(displayModeBar = FALSE) %>%
+    layout(margin = list(l = 20, r = 20, b = 60, t = 20),
+         annotations = list(x = 1, y = -0.3, text = "The charts above depict the number of music albums that have been produced and mastered by LR Friberg from the year 2019 onwards, along with the breakdown of 
+         her own work, collaborations, and compilations. The timeline is interactive; when you interact with the points, the links to the albums will open in a new window.",
+                            xref='paper', yref='paper', showarrow = F, 
+                            xanchor='right', yanchor='auto', xshift=0, yshift=0,
+                            font = list(size = 10)))
+
+# Disable unnecessary hovers
+p$x$data[[1]]$hoverinfo <- "none"
+p$x$data[[2]]$hoverinfo <- "none"
+p$x$data[[3]]$hoverinfo <- "none"
+p$x$data[[4]]$hoverinfo <- "none"
+
+onRender(
+  p, "
+  function(el) {
+    el.on('plotly_click', function(d) {
+      var url = d.points[0].customdata;
+      window.open(url);
+    });
+  }
+"
+)
 
 ```
 
