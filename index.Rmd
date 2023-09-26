@@ -8,10 +8,10 @@ output:
       version: 4
       bootswatch: spacelab
     navbar:
+        - { icon: "fa-medium", href: "https://medium.com/@lrf_se", align: right}
         - { icon: "fa-facebook", href: "https://www.facebook.com/nierikaproductions", align: right }
         - { icon: "fa-instagram", href: "https://www.instagram.com/lrf_se", align: right}
         - { icon: "fa-soundcloud", href: "https://soundcloud.com/lrf_se", align: right}
-        - { icon: "fa-medium", href: "https://medium.com/@lrf_se", align: right}
 ---
 
 ```{r setup, include=FALSE}
