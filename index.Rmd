@@ -4,6 +4,9 @@ output:
   flexdashboard::flex_dashboard:
     orientation: rows
     vertical_layout: fill
+    theme: 
+      version: 4
+      bootswatch: spacelab
 ---
 
 ```{r setup, include=FALSE}
@@ -12,6 +15,12 @@ library(dplyr)
 library(readxl)
 library(plotly)
 library(feather)
+library(scales)
+library(lubridate)
+library(ggplot2)
+library(tidyverse)
+library(knitr)
+library(timevis)
 
 # Set to 1 if data from the Excel file needs to be imported.
 init <- 0
@@ -34,34 +43,53 @@ projects <- read_feather(projects_path)
 # Pick only data starting from 2019 and wrangle
 discography <- discography %>%
   select(artist, album, year, month, genre, mastering, own, collab, compilation, IA) %>%
-  filter(year != "TBA") %>% na.omit() %>%
-  filter(!row_number() %in% c(1:30))
+  dplyr::filter(year != "TBA") %>% na.omit() %>%
+  dplyr::filter(!row_number() %in% c(1:30))
+
+# Wrangle dates
+discography$year <- discography$year %>% as.numeric()
+discography$date <- with(discography, ym(
+  sprintf("%04d%02d", discography$year, discography$month)))
+
+# Define album type as a factor
+discography <- discography %>% mutate(type = case_when(own == 1 ~ "Own Music",
+    collab == 1 ~ "Collaboration",
+    compilation != 0 ~ "Compilation"))
+type_levels <- c("Compilation", "Collaboration", "Own Music")
+type_colors <- c("#fee8c8", "#fdbb84", "#e34a33")
+discography$type <- factor(discography$type, levels = type_levels, ordered = TRUE)
+
+# Define position of timeline milestones on the chart
+discography$direction <- rep_len(c(1, -1), nrow(discography))
+discography$position <- rep_len(c(0.5, -0.5, 1.0, -1.0, 1.25, -1.25, 1.5, -1.5), nrow(discography))
+
+
 
 # Calculate totals
 total_productions <- nrow(discography) %>% as.numeric()
-total_mastering <- discography %>% filter(mastering == 1) %>% nrow() %>% as.numeric()
-total_own <- discography %>% filter(own == 1) %>% nrow() %>% as.numeric()
-total_collab <- discography %>% filter(collab == 1) %>% nrow() %>% as.numeric()
-total_compilation <- discography %>% filter(compilation != 0) %>% nrow() %>% as.numeric()
+total_mastering <- discography %>% dplyr::filter(mastering == 1) %>% nrow() %>% as.numeric()
+total_own <- discography %>% dplyr::filter(own == 1) %>% nrow() %>% as.numeric()
+total_collab <- discography %>% dplyr::filter(collab == 1) %>% nrow() %>% as.numeric()
+total_compilation <- discography %>% dplyr::filter(compilation != 0) %>% nrow() %>% as.numeric()
 
 # Genre distribution for production total
 genres_productions <- discography %>% group_by(genre) %>% 
   summarize(total = n(), .groups = "drop")
 
 genres_productions_aggr <- rbind(
-  genres_productions %>% filter(total > 10),
-  genres_productions %>% filter(total < 10) %>% 
+  genres_productions %>% dplyr::filter(total > 10),
+  genres_productions %>% dplyr::filter(total < 10) %>% 
     mutate(genre = "Other", total = sum(across(total))) %>% distinct()
 )
 remove(genres_productions)
 
 # Genre distribution for mastering total
-genres_mastering <- discography %>% filter(mastering == 1) %>% 
+genres_mastering <- discography %>% dplyr::filter(mastering == 1) %>% 
   group_by(genre) %>% summarize(total = n(), .groups = "drop")
 
 genres_mastering_aggr <- rbind(
-  genres_mastering %>% filter(total > 10),
-  genres_mastering %>% filter(total < 10) %>% 
+  genres_mastering %>% dplyr::filter(total > 10),
+  genres_mastering %>% dplyr::filter(total < 10) %>% 
     mutate(genre = "Other", total = sum(across(total))) %>% distinct()
 )
 remove(genres_mastering)
@@ -69,70 +97,114 @@ remove(genres_mastering)
 # To Do:
 #
 # 1. Listen to the whole "Reclaiming the Truth", for the sake of checking correct pronunciation
-# 2. Timeline plot for creative stuff. Start and end of projects.
-# 3. Bar chart. Own music, collabs, compilations (intent/paradigm/others). Or the third donut.
-#    But make sure that the categories are mutually exclusive.
+# 2. Timeline plot for creative stuff. Start and end of projects. Album list + soc.media icons
+#   (FB, instagram, SoundCloud, Medium)
+# 3. The line about data since April 2019.
+# 4. CV generation based on Feather data (separate rmd)
 
 
 ```
 
-Row {data-height=350}
+Row {data-height=300}
 -----------------------------------------------------------------------
 
 ###
 
 ```{r}
+# Show the productions chart
 genres_productions_aggr %>%
   plot_ly(labels = ~genre,
           values = ~total,
           textinfo = "none",
-          sort = FALSE) %>% 
+          sort = FALSE,
+          marker = list(colors = c("#fef0d9", "#fdcc8a", "#fc8d59", "#d7301f"))) %>% 
   add_pie(hole = 0.8) %>%
   layout(xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
          yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
          annotations = list(text = paste0("<span style='font-size: 14px; color=#555; font-family:Helvetica'>Productions</span><br />", total_productions), "showarrow" = FALSE, 
-                            font = list(size = 40, color = "black")))
+                            font = list(size = 40, color = "black"))) %>%
+  config(displayModeBar = FALSE)
 
 ```
 
 ### 
 
 ```{r}
+# Show the mastering chart
 genres_mastering_aggr %>%
   plot_ly(labels = ~genre,
           values = ~total,
           textinfo = "none",
-          sort = FALSE) %>% 
+          sort = FALSE,
+          marker = list(colors = c("#fef0d9", "#fdcc8a", "#fc8d59", "#d7301f"))) %>% 
   add_pie(hole = 0.8) %>%
   layout(xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
          yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
          annotations = list(text = paste0("<span style='font-size: 14px; color=#555; font-family:Helvetica'>Mastering</span><br />", total_mastering), "showarrow" = FALSE, 
-                            font = list(size = 40, color = "black")))
-
+                            font = list(size = 40, color = "black"))) %>%
+  config(displayModeBar = FALSE)
 
 ```
 
-Row {data-height=250}
------------------------------------------------------------------------
-
-### Timeline
+###
 
 ```{r}
-
-
+# Show the proportions of work done so far
+totals <- data.frame("Total", total_own, total_collab, total_compilation)
+colnames(totals) <- c("Label", "Own", "Collaborations", "Compilations")
+totals %>% plot_ly(x = ~Label, y = ~Own,
+                       type = "bar", name = "Own Music",
+                   marker = list(color = "#e34a33")) %>%
+        add_trace(y = ~Collaborations, name = "Collaborations",
+                  marker = list(color = "#fdbb84")) %>%  
+        add_trace(y = ~Compilations, name = "Compilations",
+                  marker = list(color = "#fee8c8")) %>%
+        layout(barmode = "stack", yaxis = list(title = ""),
+              barmode = "stack" , xaxis = list(title = ""),
+              title = "") %>%
+  config(displayModeBar = FALSE)
+  
 ```
 
-Row {data-height=60}
+Row {data-height=300}
 -----------------------------------------------------------------------
 
 ###
 
-Own Music Albums: `r total_own`  
+```{r,fig.width = 40, fig.height = 35}
+# Create and show the timeline plot
+tl_creative <- ggplot(
+  discography, aes(x = date, y = position, col = type, label = album)) 
 
-###
+tl_creative <- tl_creative + labs(col = "") 
 
-Collaborations: `r total_collab`
+tl_creative <- tl_creative + scale_color_manual(
+  values = type_colors, labels = type_levels, drop = FALSE) 
 
-###
+tl_creative <- tl_creative + theme_minimal() 
 
-Compilations: `r total_compilation`
+tl_creative <- tl_creative + geom_hline(yintercept = 0, color = "#000000", linewidth = 0.3)
+
+tl_creative <- tl_creative + geom_segment(
+  data = discography, aes(y = position, yend = 0, xend = date), color = "#000000", 
+  linewidth = 0.2) 
+
+tl_creative <- tl_creative + geom_point(aes(y = position), size = 3) 
+
+tl_creative <- tl_creative + theme(axis.line.y = element_blank(),
+                 axis.text.y = element_blank(),
+                 axis.title.x = element_blank(),
+                 axis.title.y = element_blank(),
+                 axis.ticks.y = element_blank(),
+                 axis.text.x = element_blank(),
+                 axis.ticks.x = element_blank(),
+                 axis.line.x = element_blank(),
+                 panel.grid.major = element_blank(),
+                 legend.position = "right"
+                ) 
+
+ggplotly(tl_creative, tooltip = "album") %>%
+  config(displayModeBar = FALSE)
+
+```
+
