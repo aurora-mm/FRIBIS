@@ -216,11 +216,11 @@ tl_creative <- tl_creative + geom_segment(
 tl_creative <- tl_creative + geom_text(data = discography,  
                                        aes(x = date, 
                                            y = -0.15, label = m),
-                                       size = 3, vjust = 0.5, color = "#CCCCCC", angle = 90) 
+                                       size = 3, vjust = 0.5, color = "#999999", angle = 90) 
 
 tl_creative <- tl_creative + geom_text(data = discography,
                                        aes(x = date, y = -0.38, label = y,
-                                           fontface = "bold"), size = 3.5, color = "#CCCCCC") 
+                                           fontface = "bold"), size = 3.5, color = "#999999") 
 
 tl_creative <- tl_creative + geom_point(aes(y = position), size = 3) 
 
