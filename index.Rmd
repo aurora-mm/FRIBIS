@@ -3,6 +3,7 @@ title: "FRIBIS: LR Friberg Insights"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
+    fig_mobile: FALSE
     vertical_layout: fill
     theme: 
       version: 4
