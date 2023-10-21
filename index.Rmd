@@ -1,5 +1,5 @@
 ---
-title: "FRIBIS: LR Friberg Insights"
+title: "FRIBIS: Linn R. Friberg Insights"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
@@ -17,51 +17,64 @@ output:
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
-library(dplyr)
-library(readxl)
 library(plotly)
 library(feather)
 library(scales)
-library(lubridate)
-library(ggplot2)
 library(tidyverse)
 library(knitr)
 library(timevis)
 library(htmlwidgets)
+library(readxl)
+library(lubridate)
+library(ggwordcloud)
 
-# Set to 1 if data from the Excel file needs to be imported.
-init <- 0
+# Set to 1 if data from the Excel file needs to be imported
+init <- 1
 
 discography_path <- "discography.feather"
-projects_path <- "projects.feather"
+toastmasters_path <- "toastmasters.feather"
+courses_path <- "courses.feather"
+extracurriculars_path <- "extracurriculars.feather"
+travelling_path <- "travelling.feather"
 
 # Import Excel file
 if(init == 1) {
   discography <- read_excel("data.xlsx", sheet = "Discography")
-  projects <- read_excel("data.xlsx", sheet = "Projects")
+  toastmasters <- read_excel("data.xlsx", sheet = "Toastmasters")
+  courses <- read_excel("data.xlsx", sheet = "Courses")
+  extracurriculars <- read_excel("data.xlsx", sheet = "Extracurriculars")
+  travelling <- read_excel("data.xlsx", sheet = "Travelling")
   write_feather(discography, discography_path)
-  write_feather(projects, projects_path)
+  write_feather(toastmasters, toastmasters_path)
+  write_feather(courses, courses_path)
+  write_feather(extracurriculars, extracurriculars_path)
+  write_feather(travelling, travelling_path)
 }
 
 # Read Feather files
 discography <- read_feather(discography_path)
-projects <- read_feather(projects_path)
+toastmasters <- read_feather(toastmasters_path)
+courses <- read_feather(courses_path)
+extracurriculars <- read_feather(extracurriculars_path)
+travelling <- read_feather(travelling_path)
 
-# Pick only data starting from 2019 and wrangle
+#############
+# M U S I C #
+#############
+
+# Wrangle discography data
 discography <- discography %>%
   select(artist, album, year, month, genre, mastering, own, collab, compilation, IA) %>%
-  dplyr::filter(year != "TBA") %>% na.omit() %>%
-  dplyr::filter(!row_number() %in% c(1:30))
+  dplyr::filter(year != "TBA") %>% na.omit()
 
-# Wrangle dates
+# Wrangle discography dates
 discography$year <- discography$year %>% as.numeric()
 discography$date <- with(discography, ym(
   sprintf("%04d%02d", discography$year, discography$month)))
-discography$m <- format(discography$date, "%b")
-discography$y <- format(discography$date, "%y")
+discography$m <- format(discography$date, "%b") # for the timeline
+discography$y <- format(discography$date, "%y") # for the timeline
 
-
-# Define album type as a factor
+# Prepare the Own/Collaboration/Compilation chart
 discography <- discography %>% mutate(type = case_when(own == 1 ~ "Own Music",
     collab == 1 ~ "Collaboration",
     compilation != 0 ~ "Compilation"))
@@ -113,14 +126,225 @@ genres_mastering_aggr <- rbind(
 )
 remove(genres_mastering)
 
+###############
+# S K I L L S #
+###############
+
+# List all skills
+skills <- c(courses$skill, extracurriculars$skill) %>% table() %>% as.data.frame()
+colnames(skills) <- c("skill", "freq")
+
+# Wrangle the data
+courses <- courses %>% 
+  select(university, course, date, credits, topic, language) %>% unique()
+extracurriculars <- extracurriculars %>%
+  select(activity, date) %>% unique()
+topic_levels <- c("Business Administration", "Mathematics", 
+                  "Linguistics", "Technology & Computer Science",
+                  "Statistics")
+topic_colors <- c("#eff3ff", "#bdd7e7", "#6baed6", "#3182bd", "#08519c")
+courses$topic <- factor(courses$topic, levels = topic_levels, ordered = TRUE)
+
+# List all languages
+languages <- courses$language %>% table() %>% as.data.frame()
+colnames(languages) <- c("language", "freq")
+
+# Wrangle courses date
+courses$date <- courses$date %>% as.Date()
+courses$m <- format(courses$date, "%b") # for the timeline
+courses$y <- format(courses$date, "%y") # for the timeline
+
+# Define position of timeline milestones on the chart
+courses$direction <- rep_len(c(1, -1), nrow(courses))
+courses$position <- rep_len(c(0.75, -0.75, 1.0, -1.0, 
+                                  1.25, -1.25, 1.5, -1.5), nrow(courses))
+
+# Calculate totals
+total_credits <- as.numeric(courses$credits) %>% sum()
+
+# University distribution for credits total
+credits <- aggregate(
+  as.numeric(courses$credits), 
+  by = list(university = courses$university), FUN = sum)
+
+credits_aggr <- rbind(
+  credits %>% dplyr::filter(university %in% c("Högskolan i Kristianstad", 
+                                                   "Högskolan i Skövde", 
+                                                   "Linnaeus University")) %>%
+    mutate(university = "Other Universities", x = sum(x)) %>%
+    select(university, x) %>% distinct(),
+  credits %>% dplyr::filter(!university %in% c("Högskolan i Kristianstad", 
+                                                   "Högskolan i Skövde", 
+                                                   "Linnaeus University"))
+  ) 
+credits_aggr <- credits_aggr %>% arrange(desc(x))
+remove(credits)
+
+# Topic distribution
+topics_aggr <- aggregate(
+  as.numeric(courses$credits), 
+  by = list(topic = courses$topic), FUN = sum)
+
 # To Do:
 #
-# 1. Listen to the whole "Reclaiming the Truth", for the sake of checking correct pronunciation
-# 2. Start and end of projects.
-# 3. CV generation based on Feather data (separate rmd)
+# 1. Certificates upon request!
+#    Proofread & correct all the code so far. Mark the degree when done.
+#    Layout: total hp chart (upper left), huvudområden pie chart, word cloud of skills.
+#    Timeline of courses & extracurriculars, colors according to huvudområden/extracurricular 
+#    (område - stats, math etc, extracurricular, toastmasters, extra work, statlin, intent)
+#    Milestone of starting the blog too & starting coding & skills assoc w it (summer 2021)
+#    (visualization, technical writing, research skills)
+#    Fill in xlsx with all the data.
+#    https://pkgs.rstudio.com/flexdashboard/articles/using.html#multiple-pages
+#    https://colorbrewer2.org/#type=sequential&scheme=OrRd&n=3
+#
+# 2. Travel milestones from 2021 with reference to the private Instagram. Mark hometowns.
+#    Map of Europe, coordinates of cities & places, link to Soundctuary.
+#    Filter the Soundctuary stuff out of the main music list.
+#    https://plotly.com/r/choropleth-maps/
+#
+# 3. Choropleth (INTIS) - strictly after finishing & blogging 1. and 2.
+#    When done with FMA: album links will be mostly FMA links, not IA.
+#    Include other comps and call it all just "compilation outreach"
+#
+# 4. CV generation based on Feather data (separate rmd)
 
+# Reread: https://www.toptal.com/designers/data-visualization/dashboard-design-best-practices
 
 ```
+
+Studies
+===================================== 
+
+Row {data-height=300}
+-----------------------------------------------------------------------
+
+###
+
+```{r}
+# Show the credits chart
+credits_aggr %>%
+  plot_ly(labels = ~university,
+          values = ~x,
+          textinfo = "none",
+          sort = FALSE,
+          marker = list(colors = c("#08519c", "#3182bd", "#6baed6", "#bdd7e7", "#eff3ff"))) %>% 
+  add_pie(hole = 0.8) %>%
+  layout(xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         annotations = list(text = paste0("<span style='font-size: 14px; color=#555; font-family:Helvetica'>Credits</span><br />", total_credits), "showarrow" = FALSE, 
+                            font = list(size = 40, color = "black"))) %>%
+  config(displayModeBar = FALSE)
+
+```
+
+### 
+
+```{r}
+# Show the word cloud
+set.seed(4)
+ggplot(skills, aes(label = skill, size = freq, color = as.numeric(skill))) +
+    geom_text_wordcloud_area(shape = "square") +
+    scale_size_area(max_size = 40) +
+    theme_minimal() + 
+    scale_color_gradient(low = "#08519c", high = "#2171b5")
+
+```
+
+###
+
+```{r}
+# Show the proportions of topics
+topics_aggr <- topics_aggr %>% t() %>% as.data.frame()
+colnames(topics_aggr) <- topics_aggr[1,]
+topics_aggr <- topics_aggr[-1,]
+topics_aggr$topic <- "Credits"
+
+topics_aggr %>% plot_ly(x = ~topic, y = ~as.numeric(Statistics),
+                       type = "bar", name = "Statistics",
+                       marker = list(color = "#2171b5")) %>%
+             add_trace(y = ~as.numeric(`Technology & Computer Science`), name = "Technology & Computer Science",
+                       marker = list(color = "#3182bd")) %>%
+             add_trace(y = ~as.numeric(Linguistics), name = "Linguistics",
+                       marker = list(color = "#6baed6")) %>%
+             add_trace(y = ~as.numeric(Mathematics), name = "Mathematics",
+                       marker = list(color = "#bdd7e7")) %>%
+             add_trace(y = ~as.numeric(`Business Administration`), name = "Business Administration",
+                       marker = list(color = "#eff3ff")) %>%
+             layout(barmode = "stack", yaxis = list(title = ""),
+                       xaxis = list(title = ""), title = "") %>%
+             config(displayModeBar = FALSE)
+
+```
+
+Row {data-height=300}
+-----------------------------------------------------------------------
+
+###
+
+```{r,fig.width = 40, fig.height = 35}
+# Create and show the timeline plot
+tl_courses <- ggplot(
+  courses, aes(x = date, y = position, col = topic)
+  ) 
+
+tl_courses <- tl_courses + labs(col = "") 
+
+tl_courses <- tl_courses + scale_color_manual(
+  values = topic_colors, labels = topic_levels, drop = FALSE) 
+
+tl_courses <- tl_courses + theme_minimal() 
+
+tl_courses <- tl_courses + geom_hline(yintercept = 0, color = "#000000", linewidth = 0.3)
+
+tl_courses <- tl_courses + geom_segment(
+  data = courses, aes(y = position, yend = 0, xend = date), color = "#000000", 
+  linewidth = 0.2) 
+
+tl_courses <- tl_courses + geom_text(data = courses,  
+                                       aes(x = date, 
+                                           y = -0.15, label = m),
+                                       size = 3, vjust = 0.5, color = "#999999", angle = 90) 
+
+tl_courses <- tl_courses + geom_text(data = courses,
+                                       aes(x = date, y = -0.38, label = y,
+                                           fontface = "bold"), size = 3.5, color = "#999999") 
+
+tl_courses <- tl_courses + geom_point(aes(y = position), size = 3) 
+
+tl_courses <- tl_courses + theme(axis.line.y = element_blank(),
+                 axis.text.y = element_blank(),
+                 axis.title.x = element_blank(),
+                 axis.title.y = element_blank(),
+                 axis.ticks.y = element_blank(),
+                 axis.text.x = element_blank(),
+                 axis.ticks.x = element_blank(),
+                 axis.line.x = element_blank(),
+                 panel.grid.major = element_blank(),
+                 legend.position = "right"
+                ) 
+
+p <- ggplotly(tl_courses, tooltip = "course") %>%
+  config(displayModeBar = FALSE) %>%
+    layout(margin = list(l = 20, r = 20, b = 60, t = 20),
+         annotations = list(x = 1, y = -0.3, text = "The charts above depict the number of ECTS credits that have been earned by Linn R. Friberg from the year 2020 onwards, along with the breakdown of 
+         main fields of studies (subjects) and the skills gained during the studies.",
+                            xref='paper', yref='paper', showarrow = F, 
+                            xanchor='right', yanchor='auto', xshift=0, yshift=0,
+                            font = list(size = 10)))
+
+# Disable unnecessary hovers
+p$x$data[[1]]$hoverinfo <- "none"
+p$x$data[[2]]$hoverinfo <- "none"
+p$x$data[[3]]$hoverinfo <- "none"
+p$x$data[[4]]$hoverinfo <- "none"
+
+p
+
+```
+
+Music
+=====================================
 
 Row {data-height=300}
 -----------------------------------------------------------------------
@@ -182,7 +406,7 @@ totals %>% plot_ly(x = ~Total, y = ~Own,
         add_trace(y = ~Compilations, name = "Compilations",
                   marker = list(color = "#fee8c8")) %>%
         layout(barmode = "stack", yaxis = list(title = ""),
-              barmode = "stack" , xaxis = xform,
+              xaxis = xform,
               title = "") %>%
   config(displayModeBar = FALSE)
   
@@ -239,7 +463,7 @@ tl_creative <- tl_creative + theme(axis.line.y = element_blank(),
 p <- ggplotly(tl_creative, tooltip = "release") %>%
   config(displayModeBar = FALSE) %>%
     layout(margin = list(l = 20, r = 20, b = 60, t = 20),
-         annotations = list(x = 1, y = -0.3, text = "The charts above depict the number of music albums that have been produced and mastered by LR Friberg from the year 2019 onwards, along with the breakdown of 
+         annotations = list(x = 1, y = -0.3, text = "The charts above depict the number of music albums that have been produced and mastered by Linn R. Friberg from the year 2019 onwards, along with the breakdown of 
          her own work, collaborations, and compilations. The timeline is interactive; when you interact with the points, the links to the albums will open in a new window.",
                             xref='paper', yref='paper', showarrow = F, 
                             xanchor='right', yanchor='auto', xshift=0, yshift=0,
